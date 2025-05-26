@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Geometry Curve Visualizer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    canvas {
+      width: 100%;
+      height: 80vh;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid mt-4">
+    <div class="row d-flex align-items-center justify-content-center">
+      <!-- Sidebar Buttons -->
+      <div class="col-3 text-center">
+        <div class="d-grid gap-2">
+          <button class="btn btn-primary" onclick="setCurveType('simple')">Simple Curve</button>
+          <button class="btn btn-secondary" onclick="setCurveType('spline')">Spline Interpolation</button>
+          <button class="btn btn-success" onclick="setCurveType('lagrange')">Lagrange Interpolation</button>
+          <button class="btn btn-danger" onclick="setCurveType('hermite')">Hermite Arc</button>
+          <button class="btn btn-warning" onclick="setCurveType('bezier')">Bézier Curve</button>
+          <button class="btn btn-primary" onclick="setCurveType('parametric')">Parametic Interpolation</button>
+          <button class="btn btn-success" onclick="setCurveType('rational')">Rational Bézier</button>
+          
+        </div>
+      </div>
+
+      <!-- Canvas Area -->
+      <div class="col-9 text-center">
+        <canvas id="curveCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+   <div class="row d-flex align-items-center justify-content-center">
+    <div class="col-12 text-center">
+      Powered By <b><a style="color: black; text-decoration: none;" href="https://ammaraslam.com">Ammar Aslam</a></b>
+    </div>
+    
+   </div>
+
+  <script>
+    const canvas = document.getElementById('curveCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    let points = [];
+    let currentType = 'simple';
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      points.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+      draw();
+    });
+
+    function setCurveType(type) {
+      currentType = type;
+      points = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      alert(`Selected: ${type}. Click to add points.`);
+    }
+
+    function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (points.length < 2 && currentType !== 'parametric') return;
+
+  switch (currentType) {
+    case 'simple': drawSimple(); break;
+    case 'bezier': drawBezier(); break;
+    case 'spline': drawSpline(); break;
+    case 'lagrange': drawLagrange(); break;
+    case 'hermite': drawHermite(); break;
+    case 'coons': drawCoons(); break;
+    case 'parametric': drawParametric(); break;
+    case 'rational': drawRationalBezier(); break;
+    default: drawSimple();
+  }
+
+    points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'black';
+    ctx.fill();
+  });
+
+}
+
+
+    function drawSimple() {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.strokeStyle = 'blue';
+      ctx.stroke();
+    }
+
+    function drawBezier() {
+  if (points.length < 4) return;
+
+  for (let i = 0; i + 3 < points.length; i += 3) {
+    ctx.beginPath();
+    ctx.moveTo(points[i].x, points[i].y);
+    ctx.bezierCurveTo(
+      points[i + 1].x, points[i + 1].y,
+      points[i + 2].x, points[i + 2].y,
+      points[i + 3].x, points[i + 3].y
+    );
+    ctx.strokeStyle = 'orange';
+    ctx.stroke();
+  }
+}
+
+
+    function drawSpline() {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length - 1; i++) {
+        const xc = (points[i].x + points[i + 1].x) / 2;
+        const yc = (points[i].y + points[i + 1].y) / 2;
+        ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+      }
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+      ctx.strokeStyle = 'purple';
+      ctx.stroke();
+    }
+
+    function drawLagrange() {
+      if (points.length < 2) return;
+      ctx.beginPath();
+      for (let t = 0; t <= 1; t += 0.01) {
+        const pos = lagrangePoint(t, points);
+        ctx.lineTo(pos.x, pos.y);
+      }
+      ctx.strokeStyle = 'green';
+      ctx.stroke();
+    }
+
+    function lagrangePoint(t, pts) {
+      let n = pts.length;
+      let x = 0, y = 0;
+      for (let i = 0; i < n; i++) {
+        let li = 1;
+        for (let j = 0; j < n; j++) {
+          if (j !== i) li *= (t - j / (n - 1)) / ((i / (n - 1)) - (j / (n - 1)));
+        }
+        x += pts[i].x * li;
+        y += pts[i].y * li;
+      }
+      return { x, y };
+    }
+
+    function drawHermite() {
+  if (points.length < 4 || points.length % 2 !== 0) return;
+
+  for (let i = 0; i < points.length - 3; i += 2) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const t0 = points[i + 2]; // tangent at p0
+    const t1 = points[i + 3]; // tangent at p1
+
+    ctx.beginPath();
+    for (let t = 0; t <= 1; t += 0.01) {
+      const h1 = 2 * t ** 3 - 3 * t ** 2 + 1;
+      const h2 = -2 * t ** 3 + 3 * t ** 2;
+      const h3 = t ** 3 - 2 * t ** 2 + t;
+      const h4 = t ** 3 - t ** 2;
+
+      const x = h1 * p0.x + h2 * p1.x + h3 * (t0.x - p0.x) + h4 * (t1.x - p1.x);
+      const y = h1 * p0.y + h2 * p1.y + h3 * (t0.y - p0.y) + h4 * (t1.y - p1.y);
+
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'red';
+    ctx.stroke();
+  }
+    }
+
+function drawParametric() {
+  if (points.length < 2) return;
+
+  ctx.beginPath();
+
+  for (let t = 0; t <= 1; t += 0.01) {
+    const pt = lagrangeParametric(t);
+    if (t === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  }
+
+  ctx.strokeStyle = 'teal';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+function lagrangeParametric(t) {
+  const n = points.length;
+  let x = 0, y = 0;
+
+  for (let i = 0; i < n; i++) {
+    let li = 1;
+    for (let j = 0; j < n; j++) {
+      if (j !== i) {
+        li *= (t - j / (n - 1)) / ((i / (n - 1)) - (j / (n - 1)));
+      }
+    }
+    x += li * points[i].x;
+    y += li * points[i].y;
+  }
+
+  return { x, y };
+}
+
+
+function drawRationalBezier() {
+  const n = points.length - 1;
+  if (n < 1) return;
+
+  // Create default weights — 1 for all, but tweak some to show curve change
+  const weights = Array.from({ length: points.length }, (_, i) =>
+    i % 2 === 0 ? 1 : 2 // From here I can make user adjustable
+  );
+
+  ctx.beginPath();
+  for (let t = 0; t <= 1; t += 0.01) {
+    let numeratorX = 0, numeratorY = 0, denominator = 0;
+
+    for (let i = 0; i <= n; i++) {
+      const B = bernstein(i, n, t);
+      numeratorX += weights[i] * B * points[i].x;
+      numeratorY += weights[i] * B * points[i].y;
+      denominator += weights[i] * B;
+    }
+
+    const x = numeratorX / denominator;
+    const y = numeratorY / denominator;
+    if (t === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+
+  ctx.strokeStyle = 'brown';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+function bernstein(i, n, t) {
+  return binomial(n, i) * Math.pow(t, i) * Math.pow(1 - t, n - i);
+}
+
+function binomial(n, k) {
+  let res = 1;
+  for (let i = 0; i < k; i++) res *= (n - i) / (i + 1);
+  return res;
+}
+
+
+</script>
+</body>
+</html>
